@@ -50,6 +50,8 @@ Screenshots here:
 
 ### Requirements (LAUNCHER, NOT MINECRAFT)
 
+Python version: 3.10 or higher
+
 Java version: 21 or higher 
 
 CPU: x64
