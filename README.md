@@ -1,8 +1,8 @@
 # OSML Launcher
 
-**OSML (Open Source Minecraft Launcher)** is a free and open-source Minecraft launcher written in **C++** with **gtkmm 4** for a native desktop experience on Linux and other platforms supported by GTK.
+**OSML (Open Source Minecraft Launcher)** is a free and open-source Minecraft launcher written in **Python** with **pygobject** for a native desktop experience on Linux and other platforms supported by GTK.
 
-OSML aims to provide a lightweight, modern, and fully open launcher capable of managing and launching multiple Minecraft versions and modding platforms while respecting Mojang's authentication requirements.
+OSML aims to provide a lightweight, modern, and fully open launcher capable of managing and launching multiple Minecraft versions and modding platforms.
 
 ---
 
@@ -54,12 +54,12 @@ docs/screenshots/version-selector.png
 
 ## Building
 
-### Requirements
+### Requirements (LAUNCHER, NOT MINECRAFT)
 
-* C++20 compatible compiler
-* GNU Make
-* pkg-config
-* gtkmm 4 development libraries
+Java version: 21 or higher 
+CPU: x64
+GPU: potato
+RAM: 2 Gib
 
 ## Contributing
 
