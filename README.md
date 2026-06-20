@@ -66,7 +66,7 @@ At first install libraries
 
 ```pip install minecraft-launcher-lib==8.0 PyGObject==3.56.3```
 
-then if you use windows run ```launcher.bat``` and if you use linux run ```launcher.sh```
+then if you use windows run ```launcher.bat``` and if you use linux run ```launcher.sh``` (you need to make .sh executable ```chmod +x launcher.sh```)
 
 ## Contributing
 
