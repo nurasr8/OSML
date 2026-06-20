@@ -52,8 +52,11 @@ Screenshots here:
 ### Requirements (LAUNCHER, NOT MINECRAFT)
 
 Java version: 21 or higher 
+
 CPU: x64
+
 GPU: potato
+
 RAM: 2 Gib
 
 ## Contributing
