@@ -46,8 +46,8 @@ OSML is a pirate Minecraft launcher so you don't need microsoft account.
 Screenshots here:
 
 ```text
-docs/screenshots/main-window.png
-docs/screenshots/version-selector.png
+1 screenshot.png
+2 screenshot.png
 ```
 
 ---
