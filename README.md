@@ -16,6 +16,7 @@ OSML aims to provide a lightweight, modern, and fully open launcher capable of m
   * Forge
   * NeoForge
   * OptiFine
+  * Fabric
 * Version selection interface
 * Profile and username management
 * Launch log and status output
