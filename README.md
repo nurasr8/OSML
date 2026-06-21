@@ -65,7 +65,7 @@ RAM: 2 Gib
 
 At first install libraries
 
-```pip install minecraft-launcher-lib==8.0 PyGObject==3.56.3```
+```pip install minecraft-launcher-lib==8.0 PyGObject==3.56.3 requests==2.34.0```
 
 then if you use windows run ```launcher.bat``` and if you use linux run ```launcher.sh``` 
 
