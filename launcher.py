@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hashlib
@@ -14,11 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-import gi
 import requests
-
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Pango  # noqa: E402
+import wx
+import wx.lib.scrolledpanel
 
 try:
     import minecraft_launcher_lib
@@ -31,7 +28,6 @@ APP_ID = "OSML"
 MINECRAFT_DIR = Path.home() / ".minecraft"
 CONFIG_DIR = Path.home() / ".config" / APP_ID
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
-OPTIFINE_DOWNLOADS_URL = "https://optifine.net/downl1oads"
 
 LANGUAGES: dict[str, dict[str, str]] = {
     "en": {
@@ -117,114 +113,6 @@ DEFAULT_LANGUAGE = "en"
 
 POPUP_MAX_VISIBLE_ROWS = 10
 
-class ScrollableComboBoxText(Gtk.Box):
-
-    def __init__(self, max_visible_rows: int = POPUP_MAX_VISIBLE_ROWS) -> None:
-        super().__init__(orientation=Gtk.Orientation.HORIZONTAL)
-        self._items: list[str] = []
-        self._active_index: int = -1
-        self._max_visible_rows = max_visible_rows
-        self._signal_handlers: list[Callable[["ScrollableComboBoxText"], None]] = []
-        self._row_height_px = 30
-
-        self._button = Gtk.MenuButton()
-        self._button_label = Gtk.Label(xalign=0)
-        self._button_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self._button.add(self._button_label)
-        self.pack_start(self._button, True, True, 0)
-
-        self._popover = Gtk.Popover()
-        self._popover.set_relative_to(self._button)
-        self._button.set_popover(self._popover)
-
-        self._scrolled = Gtk.ScrolledWindow()
-        self._scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self._scrolled.set_propagate_natural_height(True)
-
-        self._list_box = Gtk.ListBox()
-        self._list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self._list_box.connect("row-activated", self._on_row_activated)
-        self._scrolled.add(self._list_box)
-        self._popover.add(self._scrolled)
-        self._scrolled.show_all()
-
-        self._update_button_label()
-
-    def set_hexpand(self, expand: bool) -> None:
-        Gtk.Box.set_hexpand(self, expand)
-        self._button.set_hexpand(expand)
-
-    def set_sensitive(self, sensitive: bool) -> None:
-        self._button.set_sensitive(sensitive)
-
-    def connect_changed(self, callback: Callable[["ScrollableComboBoxText"], None]) -> None:
-        self._signal_handlers.append(callback)
-
-    def remove_all(self) -> None:
-        self._items = []
-        self._active_index = -1
-        for child in list(self._list_box.get_children()):
-            self._list_box.remove(child)
-        self._scrolled.set_min_content_height(-1)
-        self._scrolled.set_max_content_height(-1)
-        self._update_button_label()
-
-    def append_text(self, text: str) -> None:
-        self._items.append(text)
-        row_label = Gtk.Label(label=text, xalign=0)
-        row_label.set_margin_start(8)
-        row_label.set_margin_end(8)
-        row_label.set_margin_top(6)
-        row_label.set_margin_bottom(6)
-        row = Gtk.ListBoxRow()
-        row.add(row_label)
-        row.show_all()
-        self._list_box.add(row)
-        self._resize_popup()
-
-    def get_active(self) -> int:
-        return self._active_index
-
-    def set_active(self, index: int) -> None:
-        if index < 0 or index >= len(self._items):
-            self._active_index = -1
-        else:
-            self._active_index = index
-            row = self._list_box.get_row_at_index(index)
-            if row is not None:
-                self._list_box.select_row(row)
-        self._update_button_label()
-        for handler in self._signal_handlers:
-            handler(self)
-
-    def _on_row_activated(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
-        self._active_index = row.get_index()
-        self._update_button_label()
-        self._popover.popdown()
-        for handler in self._signal_handlers:
-            handler(self)
-
-    def _update_button_label(self) -> None:
-        if 0 <= self._active_index < len(self._items):
-            self._button_label.set_text(self._items[self._active_index])
-        else:
-            self._button_label.set_text("")
-
-    def _resize_popup(self) -> None:
-        visible_rows = min(len(self._items), self._max_visible_rows)
-        height = max(1, visible_rows) * self._row_height_px
-
-        # GTK asserts that min_content_height <= max_content_height at all times.
-        # Setting min first can momentarily exceed the old max (and vice versa),
-        # so grow the looser bound first, then tighten the other to match.
-        current_max = self._scrolled.get_max_content_height()
-        if current_max != -1 and height > current_max:
-            self._scrolled.set_max_content_height(height)
-            self._scrolled.set_min_content_height(height)
-        else:
-            self._scrolled.set_min_content_height(height)
-            self._scrolled.set_max_content_height(height)
-
 
 @dataclass(frozen=True)
 class VersionChoice:
@@ -295,7 +183,7 @@ class LauncherBackend:
             )
         self._use_system_java_runtime()
 
-    def _use_system_java_runtime(self) -> None: #ИГНОР СКАЧИВАНИЕ JAVA RUNTIME
+    def _use_system_java_runtime(self) -> None:
         if self._runtime_install_patched:
             return
 
@@ -318,7 +206,6 @@ class LauncherBackend:
 
         choices.extend(self._load_vanilla_versions())
         choices.extend(self._load_loader_versions("forge"))
-        choices.extend(self._load_optifine_versions())
         choices.extend(self._load_loader_versions("neoforge"))
         choices.extend(self._load_loader_versions("fabric"))
 
@@ -332,13 +219,13 @@ class LauncherBackend:
 
         return self._group_by_minecraft_version(unique)
 
-    _KIND_ORDER = {"vanilla": 0, "forge": 1, "fabric": 2, "optifine": 3, "neoforge": 4}
+    _KIND_ORDER = {"vanilla": 0, "forge": 1, "fabric": 2, "neoforge": 4}
 
     def _group_by_minecraft_version(
         self, choices: list[VersionChoice]
     ) -> list[VersionChoice]:
         """Order choices as: for each Minecraft version (newest first) —
-        Vanilla, Forge, OptiFine, NeoForge — then the next Minecraft version, etc."""
+        Vanilla, Forge, NeoForge — then the next Minecraft version, etc."""
 
         def mc_sort_key(version: str) -> tuple:
             parts = re.split(r"[.\-]", version)
@@ -405,48 +292,6 @@ class LauncherBackend:
             )
         return choices
 
-    def _load_optifine_versions(self) -> list[VersionChoice]:
-        try:
-            response = requests.get(OPTIFINE_DOWNLOADS_URL, timeout=15) # оптифайн апи не работает так что версии сами парсятся 
-            response.raise_for_status()
-        except Exception:
-            return []
-
-        html = response.text
-        matches = re.findall(r"OptiFine_([0-9][0-9A-Za-z_.-]*)_(HD_U_[0-9A-Za-z_]+)\.jar", html)
-        choices: list[VersionChoice] = []
-        seen: set[tuple[str, str]] = set()
-        for mc_version, loader_version in matches:
-            key = (mc_version, loader_version)
-            if key in seen:
-                continue
-            seen.add(key)
-            installed = self._guess_optifine_profile(mc_version, loader_version)
-            choices.append(
-                VersionChoice(
-                    label=f"OptiFine {mc_version} {loader_version}",
-                    kind="optifine",
-                    minecraft_version=mc_version,
-                    loader_version=loader_version,
-                    installed_version=installed,
-                )
-            )
-        return choices
-
-    def _guess_optifine_profile(self, mc_version: str, loader_version: str) -> str:
-        likely = f"{mc_version}-OptiFine_{loader_version}"
-        version_file = MINECRAFT_DIR / "versions" / likely / f"{likely}.json"
-        if version_file.exists():
-            return likely
-
-        versions_dir = MINECRAFT_DIR / "versions"
-        if versions_dir.exists():
-            needle = f"{mc_version}-OptiFine"
-            for child in versions_dir.iterdir():
-                if child.is_dir() and child.name.startswith(needle):
-                    return child.name
-        return likely
-
     def install_choice(self, choice: VersionChoice) -> str:
         self.require_library()
         callback = self.callback()
@@ -472,18 +317,6 @@ class LauncherBackend:
                 str(MINECRAFT_DIR),
                 loader_version=choice.loader_version,
                 callback=callback,
-            )
-
-        if choice.kind == "optifine":
-            installed = choice.installed_version or self._guess_optifine_profile(
-                choice.minecraft_version, choice.loader_version or ""
-            )
-            if self._version_profile_exists(installed): #если версия есть то оставялем
-                return installed
-            raise RuntimeError(
-                "OptiFine is listed, but its installer is not automated here. "
-                "Install this OptiFine version once with the official installer, "
-                "then start it from this launcher."
             )
 
         raise RuntimeError(f"Unsupported version kind: {choice.kind}")
@@ -520,8 +353,8 @@ class LauncherBackend:
             ) from exc
 
     def _offline_options(self, username: str, settings: LauncherSettings) -> dict[str, object]:
-        clean_name = re.sub(r"[^A-Za-z0-9_]", "", username).strip() or "Player" # если игрок напишет ник с неподдерживаемыми символами игра крашнется
-        offline_uuid = uuid.UUID(hashlib.md5(clean_name.encode("utf-8")).hexdigest()) #UUID будет работать если игра оффлайн
+        clean_name = re.sub(r"[^A-Za-z0-9_]", "", username).strip() or "Player"
+        offline_uuid = uuid.UUID(hashlib.md5(clean_name.encode("utf-8")).hexdigest())
         java_path = self._java_path()
         return {
             "username": clean_name[:16],
@@ -533,7 +366,7 @@ class LauncherBackend:
             "customResolution": True,
             "resolutionWidth": str(settings.window_width),
             "resolutionHeight": str(settings.window_height),
-            "launcherName": "pygobject-minecraft-starter",
+            "launcherName": "wxPython-minecraft-starter",
             "launcherVersion": "1.0",
             "gameDirectory": str(MINECRAFT_DIR),
         }
@@ -543,7 +376,7 @@ class LauncherBackend:
         return self._java_path()
 
     def _java_path(self) -> str:
-        java_path = shutil.which("java")   #ищем джаву
+        java_path = shutil.which("java")
         if java_path:
             return java_path
 
@@ -640,11 +473,9 @@ class LauncherBackend:
         return False
 
 
-class LauncherWindow(Gtk.Window):
+class LauncherWindow(wx.Frame):
     def __init__(self) -> None:
-        super().__init__(title=APP_NAME)
-        self.set_default_size(520, 240)
-        self.set_border_width(18)
+        super().__init__(parent=None, title=APP_NAME, size=(854, 480))
 
         self.backend = LauncherBackend(self.set_status_threadsafe, self.set_progress_threadsafe)
         self.choices: list[VersionChoice] = []
@@ -653,81 +484,74 @@ class LauncherWindow(Gtk.Window):
         self.last_command: list[str] | None = None
         self.last_error: str | None = None
 
-        grid = Gtk.Grid(column_spacing=10, row_spacing=12)
-        self.add(grid)
+        # Create main panel
+        main_panel = wx.Panel(self)
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_panel.SetSizer(main_sizer)
 
-        title = Gtk.Label(label="Minecraft Starter")
-        title.set_xalign(0)
-        title.get_style_context().add_class("title")
-        grid.attach(title, 0, 0, 2, 1)
-        self.title_label = title
+        # Title
+        title_font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        title = wx.StaticText(main_panel, label="Minecraft Starter")
+        title.SetFont(title_font)
+        main_sizer.Add(title, 0, wx.ALL | wx.EXPAND, 10)
 
-        self.version_row_label = Gtk.Label(xalign=0)
-        grid.attach(self.version_row_label, 0, 1, 1, 1)
-        self.version_combo = ScrollableComboBoxText()
-        self.version_combo.set_hexpand(True)
-        self.version_combo.connect_changed(lambda _combo: self.refresh_debug_panel())
-        grid.attach(self.version_combo, 1, 1, 1, 1)
+        # Version selection
+        self.version_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.version_row_label = wx.StaticText(main_panel, label=self.tr("version_label"))
+        self.version_sizer.Add(self.version_row_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        self.version_combo = wx.ComboBox(main_panel, style=wx.CB_READONLY)
+        self.version_combo.Bind(wx.EVT_COMBOBOX, self.on_version_changed)
+        self.version_sizer.Add(self.version_combo, 1, wx.EXPAND)
+        main_sizer.Add(self.version_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        self.username_row_label = Gtk.Label(xalign=0)
-        grid.attach(self.username_row_label, 0, 2, 1, 1)
-        self.username_entry = Gtk.Entry()
-        self.username_entry.set_text(os.environ.get("USER", "Player")[:16])
-        grid.attach(self.username_entry, 1, 2, 1, 1)
+        # Username selection
+        self.username_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.username_row_label = wx.StaticText(main_panel, label=self.tr("username_label"))
+        self.username_sizer.Add(self.username_row_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        self.username_entry = wx.TextCtrl(main_panel, value=os.environ.get("USER", "Player")[:16])
+        self.username_sizer.Add(self.username_entry, 1, wx.EXPAND)
+        main_sizer.Add(self.username_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.settings_button = Gtk.Button.new_from_icon_name(
-            "emblem-system-symbolic", Gtk.IconSize.BUTTON
-        )
-        self.settings_button.connect("clicked", self.on_settings)
-        button_box.pack_start(self.settings_button, False, False, 0)
+        # Buttons
+        self.button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.settings_button = wx.Button(main_panel, label="⚙️ " + self.tr("settings_tooltip"))
+        self.settings_button.Bind(wx.EVT_BUTTON, self.on_settings)
+        self.button_sizer.Add(self.settings_button, 0, wx.RIGHT, 5)
 
-        self.open_button = Gtk.Button()
-        self.open_button.connect("clicked", self.on_open_folder)
-        button_box.pack_start(self.open_button, False, False, 0)
+        self.open_button = wx.Button(main_panel, label="📁 " + self.tr("open_folder"))
+        self.open_button.Bind(wx.EVT_BUTTON, self.on_open_folder)
+        self.button_sizer.Add(self.open_button, 0, wx.RIGHT, 5)
 
-        self.start_button = Gtk.Button()
-        self.start_button.connect("clicked", self.on_start_game)
-        self.start_button.set_sensitive(False)
-        button_box.pack_end(self.start_button, False, False, 0)
-        grid.attach(button_box, 0, 3, 2, 1)
+        self.button_sizer.AddStretchSpacer()
 
-        self.progress = Gtk.ProgressBar()
-        grid.attach(self.progress, 0, 4, 2, 1)
+        self.start_button = wx.Button(main_panel, label="▶️ " + self.tr("start_game"))
+        self.start_button.Bind(wx.EVT_BUTTON, self.on_start_game)
+        self.start_button.Enable(False)
+        self.button_sizer.Add(self.start_button, 0)
+        main_sizer.Add(self.button_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        self.status_label = Gtk.Label(xalign=0)
-        grid.attach(self.status_label, 0, 5, 2, 1)
+        # Progress bar
+        self.progress = wx.Gauge(main_panel, range=100)
+        main_sizer.Add(self.progress, 0, wx.ALL | wx.EXPAND, 10)
 
-        self.debug_frame = Gtk.Frame()
-        self.debug_frame.set_shadow_type(Gtk.ShadowType.IN)
-        self.debug_label_widget = Gtk.Label(xalign=0)
-        self.debug_label_widget.get_style_context().add_class("title")
-        self.debug_value_label = Gtk.Label(xalign=0)
-        self.debug_value_label.set_selectable(True)
-        self.debug_value_label.set_line_wrap(True)
-        self.debug_value_label.set_xalign(0)
-        self.debug_value_label.set_valign(Gtk.Align.START)
+        # Status label
+        self.status_label = wx.StaticText(main_panel, label=self.tr("loading_versions"))
+        main_sizer.Add(self.status_label, 0, wx.ALL | wx.EXPAND, 10)
 
-        self.debug_scrolled = Gtk.ScrolledWindow()
-        self.debug_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.debug_scrolled.set_min_content_height(80)
-        self.debug_scrolled.set_vexpand(True)
-        self.debug_scrolled.add(self.debug_value_label)
+        # Debug panel
+        self.debug_frame = wx.StaticBoxSizer(wx.VERTICAL, main_panel, self.tr("debug_label"))
+        self.debug_value_label = wx.TextCtrl(main_panel, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 100))
+        self.debug_frame.Add(self.debug_value_label, 1, wx.EXPAND)
+        main_sizer.Add(self.debug_frame, 0, wx.ALL | wx.EXPAND, 10)
+        self.debug_frame.ShowItems(False)
 
-        debug_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        debug_box.set_border_width(8)
-        debug_box.pack_start(self.debug_label_widget, False, False, 0)
-        debug_box.pack_start(self.debug_scrolled, True, True, 0)
-        self.debug_frame.add(debug_box)
-        self.debug_frame.set_vexpand(True)
-        grid.attach(self.debug_frame, 0, 6, 2, 1)
-        self.debug_frame.set_no_show_all(True)
-
-        self.connect("destroy", Gtk.main_quit)
         self.apply_language()
-        self.status_label.set_text(self.tr("loading_versions"))
         self.refresh_debug_panel()
         self.load_versions_async()
+
+        # Center and show
+        self.Centre()
+        self.Show()
 
     def tr(self, key: str, **kwargs: object) -> str:
         strings = LANGUAGES.get(self.settings.language, LANGUAGES[DEFAULT_LANGUAGE])
@@ -735,28 +559,38 @@ class LauncherWindow(Gtk.Window):
         return text.format(**kwargs) if kwargs else text
 
     def apply_language(self) -> None:
-        self.title_label.set_text(self.tr("window_title"))
-        self.version_row_label.set_text(self.tr("version_label"))
-        self.username_row_label.set_text(self.tr("username_label"))
-        self.settings_button.set_tooltip_text(self.tr("settings_tooltip"))
-        self.open_button.set_label(self.tr("open_folder"))
-        self.start_button.set_label(self.tr("start_game"))
-        self.debug_label_widget.set_text(self.tr("debug_label"))
+        self.SetTitle(self.tr("window_title"))
+        # Labels — invalidate so the sizer can recalculate their width
+        self.version_row_label.SetLabel(self.tr("version_label"))
+        self.version_row_label.InvalidateBestSize()
+        self.version_sizer.Layout()
+        self.username_row_label.SetLabel(self.tr("username_label"))
+        self.username_row_label.InvalidateBestSize()
+        self.username_sizer.Layout()
+        # Debug panel title
+        self.debug_frame.GetStaticBox().SetLabel(self.tr("debug_label"))
+        # Buttons
+        self.settings_button.SetLabel("⚙️ " + self.tr("settings_tooltip"))
+        self.settings_button.SetToolTip(self.tr("settings_tooltip"))
+        self.open_button.SetLabel("📁 " + self.tr("open_folder"))
+        self.start_button.SetLabel("▶️ " + self.tr("start_game"))
+        for btn in (self.settings_button, self.open_button, self.start_button):
+            btn.InvalidateBestSize()
+            btn.SetSize(btn.GetBestSize())
+        self.button_sizer.Layout()
         if self.choices:
-            self.status_label.set_text(self.tr("loaded_versions", count=len(self.choices)))
+            self.status_label.SetLabel(self.tr("loaded_versions", count=len(self.choices)))
         self.refresh_debug_panel()
 
     def refresh_debug_panel(self) -> None:
         if not self.settings.debug_enabled:
-            self.debug_frame.hide()
+            self.debug_frame.ShowItems(False)
             return
 
-        self.debug_frame.set_no_show_all(False)
-        self.debug_frame.show_all()
+        self.debug_frame.ShowItems(True)
 
         none_text = self.tr("debug_none")
-
-        index = self.version_combo.get_active() if hasattr(self, "version_combo") else -1
+        index = self.version_combo.GetSelection() if self.version_combo else -1
         choice = self.choices[index] if 0 <= index < len(self.choices) else None
 
         try:
@@ -773,20 +607,19 @@ class LauncherWindow(Gtk.Window):
             f"{self.tr('debug_minecraft_dir')}: {MINECRAFT_DIR}",
             f"{self.tr('debug_config_file')}: {SETTINGS_FILE}",
             f"{self.tr('debug_java_path')}: {java_path}",
-            f"{self.tr('debug_selected_version')}: "
-            f"{choice.label if choice else none_text}",
+            f"{self.tr('debug_selected_version')}: {choice.label if choice else none_text}",
             f"{self.tr('debug_kind')}: {choice.kind if choice else none_text}",
-            f"{self.tr('debug_mc_version')}: "
-            f"{choice.minecraft_version if choice else none_text}",
-            f"{self.tr('debug_loader_version')}: "
-            f"{choice.loader_version if choice and choice.loader_version else none_text}",
+            f"{self.tr('debug_mc_version')}: {choice.minecraft_version if choice else none_text}",
+            f"{self.tr('debug_loader_version')}: {choice.loader_version if choice and choice.loader_version else none_text}",
             f"{self.tr('debug_ram')}: {self.settings.ram_mb} MB",
-            f"{self.tr('debug_resolution')}: "
-            f"{self.settings.window_width}x{self.settings.window_height}",
+            f"{self.tr('debug_resolution')}: {self.settings.window_width}x{self.settings.window_height}",
             f"{self.tr('debug_last_command')}: {command_text}",
             f"{self.tr('debug_last_error')}: {self.last_error or none_text}",
         ]
-        self.debug_value_label.set_text("\n".join(lines))
+        self.debug_value_label.SetValue("\n".join(lines))
+
+    def on_version_changed(self, event: wx.Event) -> None:
+        self.refresh_debug_panel()
 
     def load_versions_async(self) -> None:
         self.set_busy(True)
@@ -796,127 +629,132 @@ class LauncherWindow(Gtk.Window):
     def _load_versions_worker(self) -> None:
         try:
             choices = self.backend.load_versions()
-            GLib.idle_add(self.set_versions, choices)
+            wx.CallAfter(self.set_versions, choices)
         except Exception as exc:
-            GLib.idle_add(self.show_error, str(exc))
+            wx.CallAfter(self.show_error, str(exc))
         finally:
-            GLib.idle_add(self.set_busy, False)
+            wx.CallAfter(self.set_busy, False)
 
     def set_versions(self, choices: list[VersionChoice]) -> None:
         self.choices = choices
-        self.version_combo.remove_all()
+        self.version_combo.Clear()
         for choice in choices:
-            self.version_combo.append_text(choice.label)
+            self.version_combo.Append(choice.label)
         if choices:
-            self.version_combo.set_active(0)
-            self.start_button.set_sensitive(True)
-            self.status_label.set_text(self.tr("loaded_versions", count=len(choices)))
+            self.version_combo.SetSelection(0)
+            self.start_button.Enable(True)
+            self.status_label.SetLabel(self.tr("loaded_versions", count=len(choices)))
         else:
-            self.status_label.set_text(self.tr("no_versions"))
+            self.status_label.SetLabel(self.tr("no_versions"))
         self.refresh_debug_panel()
 
-    def on_open_folder(self, _button: Gtk.Button) -> None:
+    def on_open_folder(self, event: wx.Event) -> None:
         MINECRAFT_DIR.mkdir(parents=True, exist_ok=True)
         try:
-            subprocess.Popen(["xdg-open", str(MINECRAFT_DIR)])
+            if os.name == 'nt':
+                os.startfile(str(MINECRAFT_DIR))
+            elif os.name == 'posix':
+                subprocess.Popen(["xdg-open", str(MINECRAFT_DIR)])
         except Exception:
             webbrowser.open(MINECRAFT_DIR.as_uri())
 
-    def on_settings(self, _button: Gtk.Button) -> None:
-        dialog = Gtk.Dialog(
-            title=self.tr("settings_title"),
-            transient_for=self,
-            modal=True,
-            destroy_with_parent=True,
-        )
-        dialog.add_button(self.tr("cancel"), Gtk.ResponseType.CANCEL)
-        dialog.add_button(self.tr("save"), Gtk.ResponseType.OK)
-        dialog.set_default_response(Gtk.ResponseType.OK)
+    def on_settings(self, event: wx.Event) -> None:
+        dialog = wx.Dialog(self, title=self.tr("settings_title"))
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-        content = dialog.get_content_area()
-        content.set_border_width(12)
+        # RAM settings
+        ram_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        ram_label = wx.StaticText(dialog, label=self.tr("ram_label"))
+        ram_sizer.Add(ram_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        ram_spin = wx.SpinCtrl(dialog, value=str(max(1, self.settings.ram_mb // 1024)), min=1, max=32)
+        ram_sizer.Add(ram_spin, 1, wx.EXPAND)
+        sizer.Add(ram_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        grid = Gtk.Grid(column_spacing=10, row_spacing=10)
-        content.add(grid)
+        # Width settings
+        width_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        width_label = wx.StaticText(dialog, label=self.tr("width_label"))
+        width_sizer.Add(width_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        width_spin = wx.SpinCtrl(dialog, value=str(self.settings.window_width), min=320, max=7680)
+        width_sizer.Add(width_spin, 1, wx.EXPAND)
+        sizer.Add(width_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        ram_label = Gtk.Label(label=self.tr("ram_label"), xalign=0)
-        grid.attach(ram_label, 0, 0, 1, 1)
-        self.ram_spin = Gtk.SpinButton.new_with_range(1, 32, 1)
-        self.ram_spin.set_value(max(1, self.settings.ram_mb // 1024))
-        grid.attach(self.ram_spin, 1, 0, 1, 1)
+        # Height settings
+        height_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        height_label = wx.StaticText(dialog, label=self.tr("height_label"))
+        height_sizer.Add(height_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        height_spin = wx.SpinCtrl(dialog, value=str(self.settings.window_height), min=240, max=4320)
+        height_sizer.Add(height_spin, 1, wx.EXPAND)
+        sizer.Add(height_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        width_label = Gtk.Label(label=self.tr("width_label"), xalign=0)
-        grid.attach(width_label, 0, 1, 1, 1)
-
-        width_spin = Gtk.SpinButton.new_with_range(320, 7680, 16)
-        width_spin.set_value(self.settings.window_width)
-        self.window_width_spin = width_spin
-        grid.attach(width_spin, 1, 1, 1, 1)
-
-        height_label = Gtk.Label(label=self.tr("height_label"), xalign=0)
-        grid.attach(height_label, 0, 2, 1, 1)
-
-        height_spin = Gtk.SpinButton.new_with_range(240, 4320, 16)
-        height_spin.set_value(self.settings.window_height)
-        self.window_height_spin = height_spin
-        grid.attach(height_spin, 1, 2, 1, 1)
-
-        language_label = Gtk.Label(label=self.tr("language_label"), xalign=0)
-        grid.attach(language_label, 0, 3, 1, 1)
-
-        language_combo = Gtk.ComboBoxText()
+        # Language settings
+        language_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        language_label = wx.StaticText(dialog, label=self.tr("language_label"))
+        language_sizer.Add(language_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        language_combo = wx.ComboBox(dialog, style=wx.CB_READONLY)
         language_codes = list(LANGUAGES.keys())
         for code in language_codes:
-            language_combo.append_text(LANGUAGES[code]["name"])
+            language_combo.Append(LANGUAGES[code]["name"])
         current_index = (
             language_codes.index(self.settings.language)
             if self.settings.language in language_codes
             else 0
         )
-        language_combo.set_active(current_index)
-        self.language_combo = language_combo
-        self._language_codes = language_codes
-        grid.attach(language_combo, 1, 3, 1, 1)
+        language_combo.SetSelection(current_index)
+        language_sizer.Add(language_combo, 1, wx.EXPAND)
+        sizer.Add(language_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        debug_check = Gtk.CheckButton(label=self.tr("debug_enabled"))
-        debug_check.set_active(self.settings.debug_enabled)
-        self.debug_check = debug_check
-        grid.attach(debug_check, 0, 4, 2, 1)
+        # Debug checkbox
+        debug_check = wx.CheckBox(dialog, label=self.tr("debug_enabled"))
+        debug_check.SetValue(self.settings.debug_enabled)
+        sizer.Add(debug_check, 0, wx.ALL, 10)
 
-        dialog.show_all()
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            selected_index = self.language_combo.get_active()
+        # Buttons
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        ok_button = wx.Button(dialog, wx.ID_OK, self.tr("save"))
+        cancel_button = wx.Button(dialog, wx.ID_CANCEL, self.tr("cancel"))
+        ok_button.Bind(wx.EVT_BUTTON, lambda e: dialog.EndModal(wx.ID_OK))
+        cancel_button.Bind(wx.EVT_BUTTON, lambda e: dialog.EndModal(wx.ID_CANCEL))
+        button_sizer.Add(ok_button, 0, wx.RIGHT, 5)
+        button_sizer.Add(cancel_button, 0)
+        sizer.Add(button_sizer, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+
+        dialog.SetSizer(sizer)
+        dialog.Fit()
+        dialog.SetMinSize(dialog.GetSize())
+        dialog.Centre()
+
+        if dialog.ShowModal() == wx.ID_OK:
+            selected_index = language_combo.GetSelection()
             selected_language = (
-                self._language_codes[selected_index]
-                if 0 <= selected_index < len(self._language_codes)
+                language_codes[selected_index]
+                if 0 <= selected_index < len(language_codes)
                 else self.settings.language
             )
             self.settings = LauncherSettings(
-                ram_mb=int(self.ram_spin.get_value()) * 1024,
-                window_width=int(self.window_width_spin.get_value()),
-                window_height=int(self.window_height_spin.get_value()),
+                ram_mb=int(ram_spin.GetValue()) * 1024,
+                window_width=int(width_spin.GetValue()),
+                window_height=int(height_spin.GetValue()),
                 language=selected_language,
-                debug_enabled=self.debug_check.get_active(),
+                debug_enabled=debug_check.GetValue(),
             )
             try:
                 self.settings.save()
                 self.apply_language()
-                self.status_label.set_text(self.tr("settings_saved"))
+                self.status_label.SetLabel(self.tr("settings_saved"))
             except Exception as exc:
                 self.show_error(self.tr("settings_save_error", error=exc))
-        dialog.destroy()
+        dialog.Destroy()
 
-    def on_start_game(self, _button: Gtk.Button) -> None:
-        index = self.version_combo.get_active()
-        if index < 0 or index >= len(self.choices):  #если версии нет то не запускаем
+    def on_start_game(self, event: wx.Event) -> None:
+        index = self.version_combo.GetSelection()
+        if index < 0 or index >= len(self.choices):
             self.show_error(self.tr("choose_version_first"))
             return
 
-        username = self.username_entry.get_text()
+        username = self.username_entry.GetValue()
         self.set_busy(True)
-        self.progress.set_fraction(0)
-        thread = threading.Thread( #поток чтоб gtk не зависал
+        self.progress.SetValue(0)
+        thread = threading.Thread(
             target=self._start_worker,
             args=(self.choices[index], username, self.settings),
             daemon=True,
@@ -931,63 +769,63 @@ class LauncherWindow(Gtk.Window):
                 choice,
                 username,
                 settings,
-                on_command=lambda command: GLib.idle_add(self._record_command, command),
+                on_command=lambda command: wx.CallAfter(self._record_command, command),
             )
             self.last_error = None
-            GLib.idle_add(self.status_label.set_text, self.tr("game_started"))
+            wx.CallAfter(self.status_label.SetLabel, self.tr("game_started"))
         except Exception as exc:
             self.last_error = str(exc)
-            GLib.idle_add(self.show_error, str(exc))
+            wx.CallAfter(self.show_error, str(exc))
         finally:
-            GLib.idle_add(self.set_busy, False)
-            GLib.idle_add(self.refresh_debug_panel)
+            wx.CallAfter(self.set_busy, False)
+            wx.CallAfter(self.refresh_debug_panel)
 
     def _record_command(self, command: list[str]) -> None:
         self.last_command = command
         self.refresh_debug_panel()
 
     def set_busy(self, busy: bool) -> None:
-        self.version_combo.set_sensitive(not busy)
-        self.username_entry.set_sensitive(not busy)
-        self.settings_button.set_sensitive(not busy)
-        self.open_button.set_sensitive(not busy)
-        self.start_button.set_sensitive((not busy) and bool(self.choices))
+        self.version_combo.Enable(not busy)
+        self.username_entry.Enable(not busy)
+        self.settings_button.Enable(not busy)
+        self.open_button.Enable(not busy)
+        self.start_button.Enable((not busy) and bool(self.choices))
 
     def set_status_threadsafe(self, text: str) -> None:
-        GLib.idle_add(self.status_label.set_text, text)
+        wx.CallAfter(self.status_label.SetLabel, text)
 
     def set_progress_threadsafe(self, value: int, max_value: int) -> None:
         def update() -> None:
             if max_value >= 0:
                 self.progress_max = max_value
             if value >= 0 and self.progress_max > 0:
-                self.progress.set_fraction(min(value / self.progress_max, 1.0))
+                self.progress.SetValue(min(int(value * 100 / self.progress_max), 100))
 
-        GLib.idle_add(update)
+        wx.CallAfter(update)
 
     def show_error(self, message: str) -> None:
         self.last_error = message
-        self.status_label.set_text(message)
+        self.status_label.SetLabel(message)
         self.refresh_debug_panel()
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            flags=0,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text=self.tr("launcher_error"),
+        dialog = wx.MessageDialog(
+            self,
+            message,
+            self.tr("launcher_error"),
+            wx.OK | wx.ICON_ERROR,
         )
-        dialog.format_secondary_text(message)
-        dialog.run()
-        dialog.destroy()
+        dialog.ShowModal()
+        dialog.Destroy()
+
+
+class LauncherApp(wx.App):
+    def OnInit(self) -> bool:
+        self.frame = LauncherWindow()
+        return True
 
 
 def main() -> None:
-    window = LauncherWindow()
-    window.show_all()
-    try:
-        Gtk.main()
-    except KeyboardInterrupt:
-        Gtk.main_quit()
+    app = LauncherApp()
+    app.MainLoop()
 
 
 if __name__ == "__main__":
