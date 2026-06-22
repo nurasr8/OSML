@@ -512,23 +512,27 @@ class LauncherWindow(wx.Frame):
         username_sizer.Add(self.username_entry, 1, wx.EXPAND)
         main_sizer.Add(username_sizer, 0, wx.ALL | wx.EXPAND, 10)
 
-        # Buttons
+        # Buttons - Fixed with explicit sizing and no emoji
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.settings_button = wx.Button(main_panel, label="⚙️ Settings")
+        
+        self.settings_button = wx.Button(main_panel, label="Settings")
+        self.settings_button.SetMinSize((90, 32))
         self.settings_button.Bind(wx.EVT_BUTTON, self.on_settings)
         button_sizer.Add(self.settings_button, 0, wx.RIGHT, 5)
 
-        self.open_button = wx.Button(main_panel, label="📁 Open Minecraft Folder")
+        self.open_button = wx.Button(main_panel, label="Open Folder")
+        self.open_button.SetMinSize((100, 32))
         self.open_button.Bind(wx.EVT_BUTTON, self.on_open_folder)
         button_sizer.Add(self.open_button, 0, wx.RIGHT, 5)
 
         button_sizer.AddStretchSpacer()
 
-        self.start_button = wx.Button(main_panel, label="▶️ Start Game")
+        self.start_button = wx.Button(main_panel, label="Start Game")
+        self.start_button.SetMinSize((100, 32))
         self.start_button.Bind(wx.EVT_BUTTON, self.on_start_game)
         self.start_button.Enable(False)
         button_sizer.Add(self.start_button, 0)
-        main_sizer.Add(button_sizer, 0, wx.ALL | wx.EXPAND, 10)
+        main_sizer.Add(button_sizer, 0, wx.ALL | wx.EXPAND, 15)
 
         # Progress bar
         self.progress = wx.Gauge(main_panel, range=100)
