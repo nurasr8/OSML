@@ -8,7 +8,7 @@ OSML aims to provide a lightweight, modern, and fully open launcher capable of m
 
 ## Features
 
-* Modern desktop interface built with **PyGObject**
+* Modern desktop interface built with **wxpython**
 * Written entirely in **Python 3.10**
 * Support for:
 
@@ -50,8 +50,6 @@ Screenshots here:
 
 ### Requirements (LAUNCHER, NOT MINECRAFT)
 
-Python version: 3.10 or higher
-
 Java version: 21 or higher 
 
 CPU: x64
@@ -59,17 +57,6 @@ CPU: x64
 GPU: potato
 
 RAM: 2 Gib
-
-## Running
-
-At first install libraries
-
-```pip install minecraft-launcher-lib==8.0 PyGObject==3.56.3 requests==2.34.0```
-
-then if you use windows run ```launcher.bat``` and if you use linux run ```launcher.sh``` 
-
-> [!WARNING]
-> you need to make .sh executable ```chmod +x launcher.sh```.
 
 ## Contributing
 
