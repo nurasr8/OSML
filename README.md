@@ -15,7 +15,6 @@ OSML aims to provide a lightweight, modern, and fully open launcher capable of m
   * Vanilla Minecraft
   * Forge
   * NeoForge
-  * OptiFine
   * Fabric
 * Version selection interface
 * Profile and username management
@@ -25,14 +24,14 @@ OSML aims to provide a lightweight, modern, and fully open launcher capable of m
 
 ---
 
-## Supported Versions
+## Supported Versionsc
 
 OSML supports a wide range of Minecraft releases, including:
 
 * Vanilla versions
 * Forge versions
 * NeoForge versions
-* OptiFine versions
+* Fabric versions
 
 ---
 
