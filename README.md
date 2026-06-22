@@ -1,6 +1,6 @@
 # OSML Launcher
 
-**OSML (Open Source Minecraft Launcher)** is a free and open-source Minecraft launcher written in **Python** with **PyGObject** for a native desktop experience on Linux and other platforms supported by GTK.
+**OSML (Open Source Minecraft Launcher)** is a free and open-source Minecraft launcher written in **Python** with **wxpython** for a native desktop experience on Linux and Windows.
 
 OSML aims to provide a lightweight, modern, and fully open launcher capable of managing and launching multiple Minecraft versions and modding platforms.
 
@@ -8,7 +8,6 @@ OSML aims to provide a lightweight, modern, and fully open launcher capable of m
 
 ## Features
 
-* Modern desktop interface built with **wxpython**
 * Written entirely in **Python 3.10**
 * Support for:
 
