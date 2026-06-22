@@ -8,7 +8,7 @@ OSML aims to provide a lightweight, modern, and fully open launcher capable of m
 
 ## Features
 
-* Written entirely in **Python 3.10**
+* Written entirely in **Python 3.12**
 * Support for:
 
   * Vanilla Minecraft
